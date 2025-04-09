@@ -1,0 +1,1759 @@
+<!-- localhost:8008 -->
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Babylon Template</title>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            border: 2px solid red;
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 95%;
+            touch-action: none;
+
+        }
+
+        canvas {
+            z-index: 0;
+        }
+
+        header {
+            background-color: #333;
+            height: 5%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        p {
+            margin: 0;
+            padding: 0%;
+            
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        .bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 75%;
+
+        }
+
+        .player {
+            height: 85%;
+            width: 130px;
+            margin-right: 30px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid rgb(255, 255, 255);
+            border-radius: 10px;
+            color: aliceblue;
+        }
+
+        .player.marked {
+            background-color: white;
+            color: #333
+        }
+
+        .timer {
+            height: 75%;
+            width: 120px;
+            margin-right: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid rgb(255, 255, 255);
+            border-radius: 10px;
+            color: aliceblue;
+            font-size: 100%;
+        }
+
+        .current_treasure {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        #treasure {
+            border-radius: 50%;
+            color: red;
+            background-color: red;
+            width: 1em;
+            height: 1em;
+            margin-left: 0.5em
+        }
+
+        .red {
+            color: red;
+        }
+
+        .blue {
+            color: rgb(55, 55, 255);
+        }
+
+        .green {
+            color: green;
+        }
+
+        .orange {
+            color: orange;
+        }
+
+        .scoreboard {
+            background-color: blue;
+            height: 200px;
+            width: 400px;
+            z-index: 1000;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .scoreboard h2 {
+            text-align: center; /* Überschrift mittig ausrichten */
+            margin-top: 0;
+        }
+
+        ol li {
+            margin-bottom: 20px;
+            font-size: 24px;
+            list-style-type: decimal;
+        }
+
+    </style>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://code.jquery.com/pep/0.4.3/pep.js"></script>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=person"/>
+</head>
+
+<body>
+<div id="fps">0</div>
+
+<header>
+    <div class="bar">
+        <div class="timer">
+            Timer: 3:00
+        </div>
+        <div id="player1" class="player marked">
+            <span class="material-symbols-outlined red">person</span>
+            <span>:</span>
+        </div>
+        <div id="player2" class="player">
+            <span class="material-symbols-outlined blue">person</span>
+            <span>:</span>
+        </div>
+        <div id="player3" class="player">
+            <span class="material-symbols-outlined green">person</span>
+            <span>:</span>
+        </div>
+        <div id="player4" class="player">
+            <span class="material-symbols-outlined orange">person</span>
+            <span>:</span>
+        </div>
+        <div class="current_treasure">
+            <p>Aktueller Schatz: </p>
+            <div id="treasure">
+
+            </div>
+        </div>
+    </div>
+</header>
+<canvas id="renderCanvas" touch-action="none"></canvas>
+<script>
+    const timerElement = document.querySelector('.timer');
+    let timerInterval = null;
+    let divFps = document.getElementById("fps");
+
+    function startCountdown(durationInSeconds) {
+        clearInterval(timerInterval)
+        let remainingTime = durationInSeconds;
+
+        timerInterval = setInterval(() => {
+            // Berechne Minuten und Sekunden
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+
+            // Formatierung der Anzeige
+            const formattedTime = `Timer: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            timerElement.textContent = formattedTime;
+
+            // Wenn die Zeit abgelaufen ist, stoppe den Timer
+            if (remainingTime <= 0) {
+                clearInterval(timerInterval);
+                timerElement.textContent = "Time's up!";
+            }
+
+            remainingTime--;
+        }, 1000); // Jede Sekunde aktualisieren
+    }
+
+    function updateCountdown() {
+        startCountdown(3 * 60); // 3 Minuten in Sekunden
+    }
+
+
+    // Starte den Timer beim Laden der Website
+
+
+    // Funktion, um die Spielerfarbe zu ändern
+    function changePlayerColor(playerId, newColorClass) {
+        const playerIcon = document.querySelector(`#${playerId} .material-symbols-outlined`);
+
+        // Entferne alte Farbklassen
+        playerIcon.classList.remove('red', 'blue', 'green', 'orange');
+
+        // Füge die neue Farbklasse hinzu
+        playerIcon.classList.add(newColorClass);
+    }
+
+    // Interne Variable zur Speicherung des Wertes
+    let _plDran = 0;
+
+    // DefineProperty verwenden, um plDran zu überwachen
+    Object.defineProperty(window, 'plDran', {
+        get() {
+            return plDran; // Gibt den aktuellen Wert zurück
+        },
+        set(value) {
+            plDran = value; // Setzt den neuen Wert
+            updateMarkedPlayer(); // Ruft die Update-Funktion auf
+        }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+        updateMarkedPlayer(); // Die Funktion ausführen
+    });
+
+    function updateMarkedPlayer() {
+        // Alle Spieler-Elemente abrufen
+        const players = document.querySelectorAll('.player');
+
+        // Entferne die Klasse "marked" von allen Spielern
+        players.forEach(player => player.classList.remove('marked'));
+        if (players[plDran]) {
+            players[plDran].classList.add('marked');
+            console.log("plDran: "+ plDran);
+        }
+    }
+
+    function addPlayernames(names) {
+        const playerDivs = document.querySelectorAll(".player");
+        playerDivs.forEach((div, index) => {
+            const scoreElement = div.querySelector("span"); // Das <p>-Element mit der Punktzahl (0)
+            if (names[index]) {
+                const nameElement = document.createElement("div"); // Neues <p>-Element für den Namen
+                nameElement.textContent = names[index]; // Namen setzen
+                // Namen VOR der Punktzahl einfügen
+                div.insertBefore(nameElement, scoreElement.nextSibling);
+            }
+        });
+    }
+
+    function winningscreen(players) {
+        const div = document.createElement('div');
+        div.className = 'scoreboard';
+        const heading = document.createElement('h2');
+        heading.textContent = 'Spiel beendet!';
+        div.appendChild(heading);
+        const ol = document.createElement('ol');
+        ol.id = 'playerList';
+        players.forEach((player, index) => {
+            const li = document.createElement('li'); // Neues Listenelement erstellen
+            li.textContent = `${player.name} - ${player.score} Schätze gesammelt`; // Spielername und Punktzahl einfügen
+            ol.appendChild(li); // Listenelement zur geordneten Liste hinzufügen
+        });
+        //Liste in das Div einfügen
+        div.appendChild(ol);
+        //Div in das Ziel-Element einfügen (hier: <body>)
+        const target = document.querySelector('body');
+        if (target) {
+            target.appendChild(div);
+        }
+    }
+
+
+    // Variablen -----------------------------------------------------------------------------------------------------------
+    let players = [0, 0, 0, 0];
+    let board = [[0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0]];
+    let scheatze = [[0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0]];
+    let current_tile = 0;
+    let current_schatz = 0;
+    let started = false;
+    const startpos = [{x: 0, z: 0}, {x: 6, z: 6}, {x: 0, z: 6}, {x: 6, z: 0}];
+    const uid = window.location.pathname.split('/')[2];
+    console.log(window.location.pathname.split('/')[2]);
+    const host = window.location.hostname
+    const moving_speed = 700;
+    const socket = new WebSocket("ws://".concat(host, ":8765/uid/", uid));
+
+    const canvas = document.getElementById("renderCanvas"); // Get the canvas element
+    const engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
+    engine.loadingScreen = new BABYLON.DefaultLoadingScreen(canvas, "loading...");
+
+    const fieldSize = 7;
+    let plDran = 0;
+    let step = 0;
+
+    let l = null; //l-Teil
+    let r = null; //r-Teil
+    let t = null; //t-Teil
+
+    let zauberer_container = null; //player
+
+    let skull = null; //schatz
+    const schatzFarben = Array();
+    schatzFarben["sword"] = {r: 0.3, g: 0, b: 0.13};
+    schatzFarben["map"] = {r: 0.48, g: 0.75, b: 0.2};
+    schatzFarben["lizard"] = {r: 0.28, g: 0.55, b: 0};
+    schatzFarben["mouse"] = {r: 0.9, g: 0, b: 0};
+    schatzFarben["candlestick"] = {r: 0.9, g: 0.4, b: 0};
+    schatzFarben["book"] = {r: 0.6, g: 0.6, b: 0.6};
+    schatzFarben["money_bag"] = {r: 1, g: 0.75, b: 0.8};
+    schatzFarben["devil"] = {r: 0, g: 0.5, b: 0.75};
+    schatzFarben["mosaic"] = {r: 0.25, g: 0.88, b: 0.82};
+    schatzFarben["magician"] = {r: 0, g: 0.5, b: 0.5};
+    schatzFarben["helmet"] = {r: 0.63, g: 0.46, b: 0.76};
+    schatzFarben["owl"] = {r: 0, g: 0, b: 0};
+    schatzFarben["bat"] = {r: 0.96, g: 0.64, b: 0.05};
+    schatzFarben["spider"] = {r: 1, g: 1, b: 1};
+    schatzFarben["bug"] = {r: 0.1, g: 0.1, b: 0.7};
+    schatzFarben["crown"] = {r: 1, g: 1, b: 0.6};
+    schatzFarben["skull"] = {r: 0.35, g: 0, b: 0.45};
+    schatzFarben["dragon"] = {r: 1, g: 0.55, b: 0.41};
+    schatzFarben["keys"] = {r: 0, g: 0.3, b: 0};
+    schatzFarben["treasure_chest"] = {r: 0.5, g: 0, b: 0};
+    schatzFarben["genie"] = {r: 1, g: 0.9, b: 0.1};
+    schatzFarben["butterfly"] = {r: 0.5, g: 0.3, b: 0.3};
+    schatzFarben["ring"] = {r: 0.6, g: 0.4, b: 0.2};
+    schatzFarben["ghost"] = {r: 0.35, g: 0.2, b: 0.1};
+
+
+    let x = 0; //Zeilen Counter
+    let y = fieldSize - 1; //Spalten Counter
+
+    const vars = new Array();
+    let initalized = false;
+
+    let anzahl = 1;
+
+    function waitForVariables(timeout = 2000) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                console.log(vars)
+                if (Date.now() - startTime > timeout) {
+                    clearInterval(interval);
+                    reject(new Error("Timeout waiting for variables to be defined"));
+                } else {
+                    if (vars['number'] != null && vars['name'] != null && vars['color'] != null && vars['list'] != null) {
+                        clearInterval(interval);
+                        resolve(vars);
+                    }
+                }
+            }, 100);
+        });
+    }
+
+    waitForVariables().then(vars => {
+        game(vars);
+    }, (error) => {
+        console.error(error);
+    });
+
+
+    // Backend - Frontend Kommunikation ------------------------------------------------------------------------------------
+    // Event handler for when the connection is opened
+    console.log('WebSocket connection opening...');
+    socket.onopen = function (event) {
+        console.log('WebSocket connection opened:', event);
+    };
+
+    // Event handler for when a message is received from the server
+    socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log("Message at ", Date.now())
+        console.log('Message from server:', data);
+
+        switch (data.action) {
+
+            case 'get_lobby':
+                if (data.status === 'success') {
+                    for (let i = 0; i < data.message.players.length; i++) {
+                        players[data.id] = player(startpos[i].x, startpos[i].z), i, data.message.players[i].id;
+                    }
+                } else {
+                    console.error('Failed to retrieve lobbys:', data.message);
+                }
+                break;
+            case 'move':
+                if (data.status === 'success') {
+                    players[plDran].hut_animation.stop()
+                    players.forEach((p)=>{
+                        if(p !== 0){
+                            p.finishPathInstantly()
+                        }
+                    })
+                    players[data.player].path = [...data.message.path]
+                    let nschatz = data.message.next_treasure;
+                    console.log("data.message.currentplayer:" + data.message.current_player);
+                    console.log("vars.player_self:" + vars.player_self);
+                    if(data.message.current_player == vars.player_self) {
+                        console.log("updating treasure");
+                        let farbe = `rgb(${schatzFarben[nschatz].r * 255}, ${schatzFarben[nschatz].g * 255}, ${schatzFarben[nschatz].b * 255})`;
+                        document.querySelector('#treasure').style.backgroundColor = farbe;
+                    }
+                    let schatz = data.message.treasure;
+                    if (schatz !== null) {
+                        let [x, y] = data.message.path[data.message.path.length - 1]
+                        players[plDran].zu_einsammelnder_schatz = scheatze[y][fieldSize - x - 1]
+                    }
+                    plDran = data.message.next_player;
+                    players[plDran].hut_animation.start(true)
+                    updateMarkedPlayer();
+                    updateCountdown()
+                    const playerElement = document.getElementById(`player${plDran+1}`);
+                    if (playerElement) {
+                      const scoreElement = playerElement.querySelector('p');
+                      if (scoreElement) {
+                        scoreElement.textContent = data.message.score;
+                      }
+                    }
+                } else if (data.status === 'won') {
+                    alert(`${data.message.winner} hat das Spiel gewonnen!`);
+                    const players = [];
+                    players.push({
+                        name: data.message.winner,
+                        score: data.message.score,
+                    });
+                    if (data.message.other_players != null) {
+                        data.message.other_players.forEach(player => {
+                            players.push({
+                                name: player.name,
+                                score: player.score,
+                            });
+                        });
+                    }
+                    winningscreen(players);
+                } else {
+                    console.error('Failed to move player:', data.message);
+                }
+                break;
+            case 'insert_tile':
+                if (data.status === 'success') {
+                    verschiebeReihe(current_tile);
+                } else {
+                    console.error('Failed to insert tile:', data.message);
+                }
+                break;
+            case 'board':
+                if (data.status === 'success') {
+                    for (let x = 0; x < data.message.board.length; x++) {
+                        for (let y = 0; y < data.message.board[x].length; y++) {
+                            board[x][y] = data.message.board[x][y];
+                        }
+                    }
+
+                } else {
+                    console.error('Failed to retrieve board state:', data.message);
+                }
+                break;
+            case 'connection':
+                if (data.status === 'success') {
+                    console.log('Connection established:', data.message);
+                    vars['name'] = data.message.name;
+                    vars['number'] = data.message.number;
+                    // TODO: Fetch color from backend
+                    vars['color'] = "black";
+                    vars['list'] = data.board;
+                    for (i = 0; i < data.board.players.length; i++) {
+                        vars['list'].players[i].position = [data.board.players[i].position[1], fieldSize - 1 - data.board.players[i].position[0]];
+                    }
+                    vars['player_self'] = data.message.number;
+                    plDran = data.board.current_player;
+                    updateCountdown()
+                    let schatz = data.treasure;
+                    let farbe = `rgb(${schatzFarben[schatz].r * 255}, ${schatzFarben[schatz].g * 255}, ${schatzFarben[schatz].b * 255})`;
+                    document.querySelector('#treasure').style.backgroundColor = farbe;
+                    const names = data.board.players.map(player => player.name);
+                    addPlayernames(names);
+                } else {
+                    console.error('Failed to establish connection:', data.message);
+                }
+                break;
+            case 'set_tile':
+                if (data.status === 'success') {
+                    teilHinsetzen(data.message.y, fieldSize - 1 - data.message.x);
+                } else {
+                    console.error('Failed to insert tile:', data.message);
+                }
+                break;
+            case 'rotate90':
+                if (data.status === 'success') {
+                    rotate90();
+                } else {
+                    console.error('Failed to insert tile:', data.message);
+                }
+                break;
+            default:
+            //console.error('Unknown action:', data.action);
+            //console.log(data);
+        }
+    };
+
+    // Event handler for when the connection is closed
+    socket.onclose = function (event) {
+        console.log('WebSocket connection closed:', event);
+    };
+
+    // Event handler for when an error occurs
+    socket.onerror = function (error) {
+        console.error('WebSocket error:', error);
+    };
+
+    // Example function to send a message to the server
+    function sendMessage(message) {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(message);
+            console.log(message);
+        } else {
+            console.error('WebSocket is not open. Ready state:', socket.readyState);
+        }
+    }
+
+    // Scene ---------------------------------------------------------------------------------------------------------------
+    const scene = new BABYLON.Scene(engine); // Creates a basic Babylon Scene object
+    scene.clearColor = BABYLON.Color3.Black();
+
+    const camera_default_target = new BABYLON.Vector3(3.0656152333430615, 0.8046869955747731, 2.773986973000806);
+    const camera_default_position = new BABYLON.Vector3(fieldSize / 2 - 0.42, 11, -fieldSize / 4);
+
+    const camera = new BABYLON.FreeCamera("camera1", camera_default_position.clone(), scene); // Creates and positions a free camera
+    camera.setTarget(camera_default_target.clone()); // Targets the camera to scene origin (Zielvektor)
+    camera.attachControl(canvas, true); // Attaches the camera to the canvas
+    camera.detachControl(canvas); //camera fixieren
+
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 15, -6), scene); // Creates a light, aiming 0,1,0
+    light.intensity = 0.7; // Dim the light a small amount 0 - 1
+
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 30, height: 25}, scene); // Built-in 'ground' shape.
+    const materialGround = new BABYLON.StandardMaterial("material_ground");
+    materialGround.diffuseTexture = new BABYLON.Texture("/static/texturen/hintergrund2.png");
+    ground.material = materialGround;
+    ground.position.x = fieldSize / 2 - 0.42;
+    ground.position.y = -1;
+    ground.position.z = fieldSize / 2;
+
+    // Player --------------------------------------------------------------------------------------------------------------
+    // Klasse eines Spielers
+    class player {
+        constructor(xPos, zPos, anzahl) {
+
+            this.path = [];
+            this.position = {x: xPos, z: zPos};
+            this.target = {x: xPos, z: zPos};
+            this.speed = moving_speed;
+            this.anzahl = anzahl;
+            this.movingByTile = false;
+            this.schatz_picked_up = null;
+
+            let x = zauberer_container.instantiateModelsToScene();
+
+
+            let rootnodes = x["rootNodes"];
+            let skeletons = x["skeletons"];
+            let animationGroups = x["animationGroups"];
+            this.animationgroups = animationGroups
+            this.hut_animation = this.animationgroups[0]
+            this.walk_animation = this.animationgroups[1]
+
+            this.mesh = rootnodes[0]._children[1];
+            // this.mesh = zauberer_container.clone("player" + anzahl);
+            this.mesh.scaling.x = 0.3;
+            this.mesh.scaling.y = 0.3;
+            this.mesh.scaling.z = 0.3;
+            this.mesh.rotation.y = 0;//Math.PI;
+            this.mesh.parent.scaling.x = -1
+            //this.mesh = BABYLON.MeshBuilder.CreateCylinder("player"+anzahl, {diameter: 0.5, height: 0.75, tessellation: 0});
+            this.mesh.position.x = this.position.x * (1 + 0.05); //scaling: Größe verändert, position: Position, rotation: Rotation
+            this.mesh.position.y = 1;
+            this.mesh.position.z = this.position.z * (1 + 0.05);
+            this.mesh.isPickable = false;
+            this.rotating = false;
+            this.iswalking = false;
+            let self = this
+            this.walk_animation.onAnimationEndObservable.add(function () {
+                self.iswalking = false
+            });
+            this.zu_einsammelnder_schatz = null;
+
+
+            switch (anzahl) {
+                case 0:
+                    //con.rootNodes[0]._children[0]._children[2].material = mat
+                    const material1 = new BABYLON.StandardMaterial("material_" + player.name);
+                    material1.diffuseColor = new BABYLON.Color3(0.5, 0, 0); //rot
+                    this.mesh.material = material1;
+                    break;
+                case 1:
+                    const material2 = new BABYLON.StandardMaterial("material_" + player.name);
+                    material2.diffuseColor = new BABYLON.Color3(0, 0, 0.5); //blau
+                    this.mesh.material = material2;
+                    break;
+                case 2:
+                    const material3 = new BABYLON.StandardMaterial("material_" + player.name);
+                    material3.diffuseColor = new BABYLON.Color3(0, 0.5, 0); //grün
+                    this.mesh.material = material3;
+                    break;
+                case 3:
+                    const material4 = new BABYLON.StandardMaterial("material_" + player.name);
+                    material4.diffuseColor = new BABYLON.Color3(0.9, 0.64, 0.05); //gelb
+                    this.mesh.material = material4;
+                    break;
+            }
+        }
+
+        finishPathInstantly() {
+            if (this.path.length > 0) {
+                console.log("player hat sich zum ende des path tpd")
+                let [x, y] = this.path.pop();
+                this.path = []
+                let targetx = y
+                let targetz = fieldSize - 1 - x
+                this.movePlayer(targetx, targetz);
+                this.position.x = targetx
+                this.position.z = targetz
+                this.mesh.position.x = targetx * 1.05
+                this.mesh.position.z = targetz * 1.05
+                this.#finishedpath()
+            }
+        }
+
+        movePlayer(targetX, targetZ) {
+            // Ziel ändern
+
+            this.target.x = targetX;
+            this.target.z = targetZ;
+            this.updateSchatzBelow(targetX, targetZ)
+            console.log("moving " + x + " " + y);
+        }
+
+        update() {
+            let playercount = players.filter(item => item !== 0).length
+            // wenn man nicht dran ist oder man sich rotiert, wird die position nicht geupdated
+            if (!this.movingByTile && (players.indexOf(this) !== ((plDran - 1 + playercount) % playercount))) {
+                return
+            }
+            if (this.rotating) {
+                return
+            }
+
+            // nähert sich an target an
+            if (this.position.x > this.target.x) {
+                this.mesh.position.x -= (1 + 0.05) / this.speed * ownDeltaTime();
+                this.position.x -= 1 / this.speed * ownDeltaTime();
+            } else if (this.position.x < this.target.x) {
+                this.mesh.position.x += (1 + 0.05) / this.speed * ownDeltaTime();
+                this.position.x += 1 / this.speed * ownDeltaTime();
+            } else {
+                if (this.position.z > this.target.z) {
+                    this.mesh.position.z -= (1 + 0.05) / this.speed * ownDeltaTime();
+                    this.position.z -= 1 / this.speed * ownDeltaTime();
+                } else if (this.position.z < this.target.z) {
+                    this.mesh.position.z += (1 + 0.05) / this.speed * ownDeltaTime();
+                    this.position.z += 1 / this.speed * ownDeltaTime();
+                }
+            }
+            // wenn target näher als 1 frame ist, wird auf target gesetzt
+            if (Math.abs(this.position.x - this.target.x) < 1 / this.speed * ownDeltaTime()) {
+                let difference = this.target.x - this.position.x;
+                this.position.x += difference;
+                this.mesh.position.x += difference * 1.05;
+            }
+            if (Math.abs(this.position.z - this.target.z) < 1 / this.speed * ownDeltaTime()) {
+                let difference = this.target.z - this.position.z;
+                this.position.z += difference;
+                this.mesh.position.z += difference * 1.05;
+            }
+
+            if (this.position.x !== this.target.x || this.position.z !== this.target.z) {
+                // wenn man sich bewegt hat und nicht durch ein tile verschoben wurde, muss die kamera angepasst weden
+                if (!this.movingByTile) {
+
+                    camera.position.x = this.position.x + 3;
+                    camera.position.y = 4.5;
+                    camera.position.z = this.position.z - .5;
+                    camera.setTarget(new BABYLON.Vector3(this.position.x, 1, this.position.z));
+
+                    if (!this.iswalking) {
+                        this.iswalking = true
+                        this.walk_animation.start(false, 1.35)
+                    }
+                }
+            } else {
+                // wenn man sich nicht mehr bewegt
+                if (this.path.length > 0) {
+                    // wenn path existiert, ihn weiterlaufen
+                    let [targetz, targetx] = this.path[0]
+                    targetz = fieldSize - 1 - targetz
+
+                    var rotationAnimation = new BABYLON.Animation(
+                        "rotationAnimation",
+                        "rotation.y", // Y-Rotation animieren
+                        60, // 30 Frames pro Sekunde
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT  // unendliche Wiederholung
+                    );
+                    let rot = 0
+                    if (targetx != this.position.x) {
+                        if (targetx > this.position.x) {
+                            rot = Math.PI / 2 * 3
+                        } else {
+                            rot = Math.PI / 2
+                        }
+                    } else {
+                        if (targetz > this.position.z) {
+                            rot = Math.PI
+                        } else {
+                            rot = 0
+                        }
+                    }
+                    if (this.mesh.rotation.y != rot) {
+
+                        if (Math.abs(this.mesh.rotation.y - rot) > Math.PI) {
+                            if (this.mesh.rotation.y < Math.PI) {
+                                this.mesh.rotation.y += 2 * Math.PI
+                            } else {
+                                this.mesh.rotation.y -= 2 * Math.PI
+                            }
+                        }
+
+                        var rotationKeys = [
+                            {frame: 0, value: this.mesh.rotation.y},
+                            {frame: 15, value: rot} // 1 Umdrehung
+                        ];
+                        rotationAnimation.setKeys(rotationKeys);
+
+
+                        this.mesh.animations = []
+                        this.mesh.animations.push(rotationAnimation);
+                        this.rotating = true;
+                        let self = this;
+                        scene.beginAnimation(this.mesh, 0, 15, false, 1, function () {
+                            self.rotating = false;
+                        });
+                    } else {
+
+                        let [x, y] = this.path.shift();
+                        this.movePlayer(y, fieldSize - 1 - x);
+
+                    }
+                } else {
+                    // wenn man den path fertig gelaufen ist
+                    this.#finishedpath()
+                }
+                this.movingByTile = false;
+            }
+        }
+
+        #finishedpath() {
+            if (this.zu_einsammelnder_schatz !== null) {
+                // animation für schatz einsammeln
+                let x = this.zu_einsammelnder_schatz
+                setTimeout(() => {
+                    let particleSystem = new BABYLON.ParticleSystem("particles", 50, scene);
+                    particleSystem.particleTexture = new BABYLON.Texture("/static/texturen/Flare.png");
+                    particleSystem.emitter = x
+                    particleSystem.minSize = 0.1;
+                    particleSystem.maxSize = 0.3;
+                    particleSystem.minLifeTime = 0.2;
+                    particleSystem.maxLifeTime = 0.6;
+                    particleSystem.emitRate = 500;
+                    particleSystem.minEmitPower = 30;
+                    particleSystem.maxEmitPower = 60;
+                    particleSystem.updateSpeed = 0.01;
+                    particleSystem.direction1 = new BABYLON.Vector3(-1, -1, -1);
+                    particleSystem.direction2 = new BABYLON.Vector3(1, 1, 1);
+                    particleSystem.targetStopDuration = 0.2;
+
+                    var scaleAnimation = new BABYLON.Animation(
+                        "scaleAnimation",
+                        "scaling", // Die Eigenschaft, die animiert wird
+                        60, // 60 Frames pro Sekunde
+                        BABYLON.Animation.ANIMATIONTYPE_VECTOR3, // Vektor3 für Skalierung
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE // Die Animation wiederholt sich nicht
+                    );
+                    var keys = [
+                        {frame: 0, value: x.scaling.clone()},
+                        {frame: 30, value: new BABYLON.Vector3(0, 0, 0)}
+                    ];
+
+                    scaleAnimation.setKeys(keys);
+
+                    particleSystem.start()
+
+                    x.animations = []
+                    x.animations.push(scaleAnimation);
+                    scene.beginAnimation(x, 0, 60, false);
+
+                    for (let i = 0; i < scheatze.length; i++) {
+                        let row = scheatze[i]
+                        for (let j = 0; j < row.length; j++) {
+                            if (row[j] === x) {
+                                scheatze[i][j] = 0
+                            }
+                        }
+                    }
+                }, 300);
+
+                this.zu_einsammelnder_schatz = null
+                this.schatz_picked_up = null
+            }
+
+            // ist fertig gelaufen, kamera wird wieder zurückgesetzt
+            camera.setTarget(camera_default_target.clone());
+            camera.position = camera_default_position.clone();
+            if (this.iswalking) {
+                // und lauf animation wird abgebrochen
+                this.walk_animation.stop()
+                this.walk_animation.reset()
+                this.iswalking = false
+            }
+        }
+
+        moveByTile(x, z) {
+            var scaleAnimation = new BABYLON.Animation(
+                "scaleAnimation",
+                "scaling", // Die Eigenschaft, die animiert wird
+                60, // 60 Frames pro Sekunde
+                BABYLON.Animation.ANIMATIONTYPE_VECTOR3, // Vektor3 für Skalierung
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE // Die Animation wiederholt sich nicht
+            );
+            var keys = [
+                {
+                    frame: 0,
+                    value: new BABYLON.Vector3(0, 0, 0) // Start bei 0 Skala
+                },
+                {
+                    frame: 10,
+                    value: this.mesh.scaling.clone() // Endet bei normaler Größe
+                }
+            ];
+
+            scaleAnimation.setKeys(keys);
+
+
+            if (x == -1) {
+                if (this.position.z == z) {
+                    this.movingByTile = true;
+                    this.target.x++;
+                    if (this.target.x == fieldSize) {
+                        this.position.x = -1;
+                        this.target.x = 0;
+                        this.mesh.position.x = -1.05;
+                        this.mesh.animations = []
+                        this.mesh.animations.push(scaleAnimation);
+                        scene.beginAnimation(this.mesh, 0, 60, false);
+                        this.updateSchatzBelow()
+                    }
+                }
+            } else if (x == fieldSize) {
+                if (this.position.z == z) {
+                    this.movingByTile = true;
+                    this.target.x--;
+                    if (this.target.x == -1) {
+                        this.target.x = fieldSize - 1;
+                        this.position.x = fieldSize;
+                        this.mesh.position.x = fieldSize * 1.05;
+                        this.mesh.animations = []
+                        this.mesh.animations.push(scaleAnimation);
+                        scene.beginAnimation(this.mesh, 0, 60, false);
+                        this.updateSchatzBelow()
+                    }
+                }
+            } else if (z == -1) {
+                if (this.position.x == x) {
+                    this.movingByTile = true;
+                    this.target.z++;
+                    if (this.target.z == fieldSize) {
+                        this.target.z = 0;
+                        this.position.z = -1;
+                        this.mesh.position.z = -1.05;
+                        this.mesh.animations = []
+                        this.mesh.animations.push(scaleAnimation);
+                        scene.beginAnimation(this.mesh, 0, 60, false);
+                        this.updateSchatzBelow()
+                    }
+                }
+            } else if (z == fieldSize) {
+                if (this.position.x == x) {
+                    this.movingByTile = true;
+                    this.target.z--;
+                    if (this.target.z == -1) {
+                        this.target.z = fieldSize - 1;
+                        this.position.z = fieldSize;
+                        this.mesh.position.z = fieldSize * 1.05;
+                        this.mesh.animations = []
+                        this.mesh.animations.push(scaleAnimation);
+                        scene.beginAnimation(this.mesh, 0, 60, false);
+                        this.updateSchatzBelow()
+                    }
+                }
+            }
+        }
+
+        updateSchatzBelow(targetX, targetZ) {
+            if (this.position.x !== targetX || this.position.z != targetZ) {
+                if (this.schatz_picked_up != null) {
+                    this.schatz_picked_up.player_counter -= 1;
+                    if (this.schatz_picked_up.player_counter === 0) {
+                        // Animation für die Position
+                        var positionAnimation = new BABYLON.Animation(
+                            "positionAnimation",
+                            "position.y", // Y-Position animieren
+                            30, // 30 Frames pro Sekunde
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+                        );
+                        var positionKeys = [
+                            {frame: 0, value: this.schatz_picked_up.position.y},
+                            {frame: 20, value: 1.5} // Zielposition auf Y = 1.5
+                        ];
+                        positionAnimation.setKeys(positionKeys);
+
+                        // Animation der Rotation
+                        var rotationAnimation = new BABYLON.Animation(
+                            "rotationAnimation",
+                            "rotation.y", // Y-Rotation animieren
+                            30, // 30 Frames pro Sekunde
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE // unendliche Wiederholung
+                        );
+                        var rotationKeys = [
+                            {frame: 0, value: this.schatz_picked_up.rotation.y},
+                            {frame: 100, value: this.schatz_picked_up.rotation.y + Math.PI * 2} // 1 Umdrehung
+                        ];
+                        rotationAnimation.setKeys(rotationKeys);
+
+                        // Füge die Animationen hinzu, ohne sie zu überschreiben
+                        this.mesh.animations = []
+                        this.schatz_picked_up.animations.push(positionAnimation);
+                        this.schatz_picked_up.animations.push(rotationAnimation);
+
+                        // Starte beide Animationen gleichzeitig
+                        scene.beginAnimation(this.schatz_picked_up, 0, 100, true);  // Startet die Rotation
+                        scene.beginAnimation(this.schatz_picked_up, 0, 20, false); // Startet die Position
+
+                        this.schatz_picked_up = null;
+                    }
+                }
+
+
+                if (scheatze[targetX] !== undefined && scheatze[targetX][targetZ] !== undefined && scheatze[targetX][targetZ] !== 0) {
+                    this.schatz_picked_up = scheatze[targetX][targetZ];
+                    if (this.schatz_picked_up.player_counter === undefined) {
+                        this.schatz_picked_up.player_counter = 0;
+                    }
+
+                    if (this.schatz_picked_up.player_counter === 0) {
+                        // Positionsanimation für das neu aufgenommene Objekt
+                        var positionAnimation = new BABYLON.Animation(
+                            "positionAnimation",
+                            "position.y",
+                            30, // 30 Frames pro Sekunde
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                            BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+                        );
+                        var positionKeys = [
+                            {frame: 0, value: this.schatz_picked_up.position.y},
+                            {frame: 20, value: 2.3} // Zielwert (Y-Position + 2)
+                        ];
+                        positionAnimation.setKeys(positionKeys);
+
+                        // Rotationsanimation für das neu aufgenommene Objekt
+                        var rotationAnimation = new BABYLON.Animation(
+                            "rotationAnimation",
+                            "rotation.y",
+                            30, // 30 Frames pro Sekunde
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE // Rotation läuft kontinuierlich
+                        );
+                        var rotationKeys = [
+                            {frame: 0, value: this.schatz_picked_up.rotation.y},
+                            {frame: 100, value: this.schatz_picked_up.rotation.y + Math.PI * 2}
+                        ];
+                        rotationAnimation.setKeys(rotationKeys);
+
+                        // Füge beide Animationen zum Objekt hinzu
+                        this.mesh.animations = []
+                        this.schatz_picked_up.animations.push(positionAnimation);
+                        this.schatz_picked_up.animations.push(rotationAnimation);
+
+                        // Starte beide Animationen gleichzeitig
+                        scene.beginAnimation(this.schatz_picked_up, 0, 20, false);  // Position
+                        scene.beginAnimation(this.schatz_picked_up, 0, 100, true);  // Rotation
+
+                        this.schatz_picked_up.player_counter += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    function updatePlayer(pl) {
+        if (pl != 0) {
+            pl.update();
+        }
+    }
+
+    function updateVisiblePlayers() {
+        let playerCount = players.filter(item => item !== 0).length;
+        const playerDivs = document.querySelectorAll(".player");
+
+        playerDivs.forEach((player, index) => {
+            player.style.display = index < playerCount ? "flex" : "none";
+        });
+    }
+
+
+    function erzeugeSpieler(spieler) {
+        pl = new player(spieler.position[0], spieler.position[1], spieler.number);
+        players[spieler.number] = pl;
+        anzahl++;
+
+        updateVisiblePlayers();
+    }
+
+    // Spielsteine ---------------------------------------------------------------------------------------------------------
+    // Labyrinth Teile - blender Obj.
+    async function loadModels() {
+
+        const lTeil = await BABYLON.SceneLoader.ImportMeshAsync("", "/static/texturen/l-teil.obj");
+        const rTeil = await BABYLON.SceneLoader.ImportMeshAsync("", "/static/texturen/r-teil.obj");
+        const tTeil = await BABYLON.SceneLoader.ImportMeshAsync("", "/static/texturen/t-teil.obj");
+
+        const skull = await BABYLON.SceneLoader.ImportMeshAsync("", "/static/texturen/diamant2.obj");
+        const zauberer = await BABYLON.loadAssetContainerAsync("/static/texturen/wizard_2anims.glb", scene);
+
+
+        return [lTeil.meshes[0], rTeil.meshes[0], tTeil.meshes[0], skull.meshes[0], zauberer];
+    }
+
+    function erhalteGaenge(gang) {
+        gang.forEach(konkreterSpielstein);
+    }
+
+    function konkreterSpielstein(spielstein) {
+        let top = false;
+        let right = false;
+        let bottom = false;
+        let left = false;
+        for (i = 0; i < spielstein.connections.length; i++) {
+            switch (spielstein.connections[i]) {
+                case "bottom":
+                    bottom = true;
+                    break;
+                case "right":
+                    right = true;
+                    break;
+                case "top":
+                    top = true;
+                    break;
+                case "left":
+                    left = true;
+                    break;
+            }
+        }
+
+        let teil = 0;
+
+        // T-Teile
+        if (left && top && right) {
+            const teil2 = t.clone("teil_" + x + "." + y);
+            teil2.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil = teil2;
+        } else if (top && right && bottom) {
+            const teil1 = t.clone("teil_" + x + "." + y);
+            teil1.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil1.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
+            teil = teil1;
+        } else if (right && bottom && left) {
+            const teil3 = t.clone("teil_" + x + "." + y);
+            teil3.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil3.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+            teil = teil3;
+        } else if (bottom && left && top) {
+            const teil0 = t.clone("teil_" + x + "." + y);
+            teil0.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil0.rotation = new BABYLON.Vector3(0, (Math.PI * 3) / 2, 0);
+            teil = teil0;
+            // R-Teile
+        } else if (top && right) {
+            const teil5 = r.clone("teil_" + x + "." + y);
+            teil5.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil5.rotation = new BABYLON.Vector3(0, (Math.PI * 3) / 2, 0);
+            teil = teil5;
+        } else if (right && bottom) {
+            const teil4 = r.clone("teil_" + x + "." + y);
+            teil4.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil = teil4;
+        } else if (bottom && left) {
+            const teil6 = r.clone("teil_" + x + "." + y);
+            teil6.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil6.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
+            teil = teil6;
+        } else if (left && top) {
+            const teil7 = r.clone("teil_" + x + "." + y);
+            teil7.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil7.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+            teil = teil7;
+            // l-Teile
+        } else if (top && bottom) {
+            const teil9 = l.clone("teil_" + x + "." + y);
+            teil9.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil9.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
+            teil = teil9;
+        } else if (left && right) {
+            const teil8 = l.clone("teil_" + x + "." + y);
+            teil8.position = new BABYLON.Vector3(x * (1 + 0.05), 1, y * (1 + 0.05));
+            teil = teil8;
+        }
+
+        if (x != -2) {
+            teil.target = new BABYLON.Vector3(x, 1, y);
+            teil.target2 = new BABYLON.Vector3(x, 1, y);
+            board[x][y] = teil;
+        } else if (x == -2) {
+            current_tile = teil;
+            current_tile.target = new BABYLON.Vector3(x, 1, y);
+            current_tile.target2 = new BABYLON.Vector3(x, 1, y);
+        }
+
+        if (spielstein.treasure != null) {
+            const schatz = skull.clone("sphere_" + x + "." + y);
+            schatz.scaling = new BABYLON.Vector3(0.035, 0.035, 0.035);
+            schatz.rotation = new BABYLON.Vector3(-(Math.PI) / 5, Math.random() * 2 - 1, 0);
+
+            //const schatz = BABYLON.MeshBuilder.CreateCylinder("feld2", {diameter: 0.5, height: 0.05, tessellation: 0});
+            schatz.position = new BABYLON.Vector3(x * (1 + 0.05), 1.5, y * (1 + 0.05));
+            schatz.isPickable = false;
+            schatz.target = new BABYLON.Vector3(x, 1, y);
+            schatz.target2 = new BABYLON.Vector3(x, 1, y);
+            const material = new BABYLON.StandardMaterial("material", scene);
+
+            switch (spielstein.treasure) {
+                case "sword":
+                    material.diffuseColor = new BABYLON.Color3(0.3, 0, 0.13); //weinrot
+                    break;
+                case "map":
+                    material.diffuseColor = new BABYLON.Color3(0.48, 0.75, 0.2); //hellgrüm
+                    break;
+                case "lizard":
+                    material.diffuseColor = new BABYLON.Color3(0.28, 0.55, 0); //mittel grün
+                    break;
+                case "mouse":
+                    material.diffuseColor = new BABYLON.Color3(0.9, 0, 0); //Rot
+                    break;
+                case "candlestick":
+                    material.diffuseColor = new BABYLON.Color3(0.9, 0.4, 0); // Orange
+                    break;
+                case "book":
+                    material.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.6); // grau
+                    break;
+                case "money_bag":
+                    material.diffuseColor = new BABYLON.Color3(1, 0.75, 0.8); // rosa
+                    break;
+                case "devil":
+                    material.diffuseColor = new BABYLON.Color3(0, 0.5, 0.75); //Seeblue
+                    break;
+                case "mosaic":
+                    material.diffuseColor = new BABYLON.Color3(0.25, 0.88, 0.82); // Türkis
+                    break;
+                case "magician":
+                    material.diffuseColor = new BABYLON.Color3(0, 0.5, 0.5); //dunkel Türkis
+                    break;
+                case "helmet":
+                    material.diffuseColor = new BABYLON.Color3(0.63, 0.46, 0.76); // Lavendel
+                    break;
+                case "owl":
+                    material.diffuseColor = new BABYLON.Color3(0, 0, 0); // Schwarz
+                    break;
+                case "bat":
+                    material.diffuseColor = new BABYLON.Color3(0.96, 0.64, 0.05); // gold
+                    break;
+                case "spider":
+                    material.diffuseColor = new BABYLON.Color3(1, 1, 1); // Weiß
+                    break;
+                case "bug":
+                    material.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.7); // Blau
+                    break;
+                case "crown":
+                    material.diffuseColor = new BABYLON.Color3(1, 1, 0.6); // Zitronengelb
+                    break;
+                case "skull":
+                    material.diffuseColor = new BABYLON.Color3(0.35, 0, 0.45); //Lila
+                    break;
+                case "dragon":
+                    material.diffuseColor = new BABYLON.Color3(1, 0.55, 0.41); // Lachs
+                    break;
+                case "keys":
+                    material.diffuseColor = new BABYLON.Color3(0, 0.3, 0); // Dunkelgrün
+                    break;
+                case "treasure_chest":
+                    material.diffuseColor = new BABYLON.Color3(0.5, 0, 0); // Dunkelrot
+                    break;
+                case "genie":
+                    material.diffuseColor = new BABYLON.Color3(1, 0.9, 0.1); // Gelb
+                    break;
+                case "butterfly":
+                    material.diffuseColor = new BABYLON.Color3(0.5, 0.3, 0.3); // Graupink
+                    break;
+                case "ring":
+                    material.diffuseColor = new BABYLON.Color3(0.6, 0.4, 0.2); //Braun
+                    break;
+                case "ghost":
+                    material.diffuseColor = new BABYLON.Color3(0.35, 0.2, 0.1); // Dunkelbraun
+                    break;
+            }
+            schatz.material = material;
+
+            if (x != -2) {
+                scheatze[x][y] = schatz;
+            } else {
+                current_schatz = schatz;
+            }
+        }
+        if (x != -2) {
+            x++;
+        }
+        if (x > 6) {
+            x = 0;
+            y--;
+        }
+    }
+
+    function createSpielsteine(lTeil, rTeil, tTeil) {
+        lTeil.position = new BABYLON.Vector3(1, fieldSize + 5, fieldSize + 5);
+        lTeil.scaling = new BABYLON.Vector3(0.088, 0.088, 0.088);
+        lTeil.type = "Spielstein";
+
+        rTeil.position = new BABYLON.Vector3(1, fieldSize + 6, fieldSize + 6);
+        rTeil.scaling = new BABYLON.Vector3(0.088, 0.088, 0.088);
+        rTeil.type = "Spielstein";
+
+        tTeil.position = new BABYLON.Vector3(1, fieldSize + 7, fieldSize + 7);
+        tTeil.scaling = new BABYLON.Vector3(0.088, 0.088, 0.088);
+        tTeil.type = "Spielstein";
+
+        vars.list.board.forEach(erhalteGaenge);
+
+        // ein Teil zusätzlich
+        x = -2;
+        y = 0;
+        konkreterSpielstein(vars.list.current_tile);
+    }
+
+    function verschiebeReihe() {
+        let x = current_tile.target.x;
+        let z = current_tile.target.z;
+        console.log("Verschiebe von " + x + " " + z);
+        let tile = current_tile;
+        let schatz = current_schatz;
+        //Zeile
+        if (x == -1) {
+            for (let i = fieldSize - 1; i > -1; i--) {
+                board[i][z].target.x++;
+                if (scheatze[i][z] != 0) {
+                    scheatze[i][z].target.x++;
+                }
+                if (i == fieldSize - 1) {
+                    current_tile = board[i][z];
+                    current_schatz = scheatze[i][z];
+                    current_tile.target.x = fieldSize;
+                    if (current_schatz != 0) {
+                        current_schatz.target.x = fieldSize;
+                    }
+                } else {
+                    board[i + 1][z] = board[i][z];
+                    scheatze[i + 1][z] = scheatze[i][z];
+                }
+            }
+            board[0][z] = tile;
+            scheatze[0][z] = schatz;
+            board[0][z].target.x = 0;
+            if (scheatze[0][z] != 0) {
+                scheatze[0][z].target.x = 0;
+            }
+        } else if (x == fieldSize) {
+            for (let i = 0; i < fieldSize; i++) {
+                board[i][z].target.x--;
+                if (scheatze[i][z] != 0) {
+                    scheatze[i][z].target.x--;
+                }
+                if (i == 0) {
+                    current_tile = board[i][z];
+                    current_schatz = scheatze[i][z];
+                    current_tile.target.x = -1;
+                    if (current_schatz != 0) {
+                        current_schatz.target.x = -1;
+                    }
+                } else {
+                    board[i - 1][z] = board[i][z];
+                    scheatze[i - 1][z] = scheatze[i][z];
+                }
+            }
+            board[fieldSize - 1][z] = tile;
+            scheatze[fieldSize - 1][z] = schatz;
+            board[fieldSize - 1][z].target.x = fieldSize - 1;
+            if (scheatze[fieldSize - 1][z] != 0) {
+                scheatze[fieldSize - 1][z].target.x = fieldSize - 1;
+            }
+            //Spalte
+        } else if (z == -1) {
+            for (let i = fieldSize - 1; i > -1; i--) {
+                board[x][i].target.z++;
+                if (scheatze[x][i] != 0) {
+                    scheatze[x][i].target.z++;
+                }
+                if (i == fieldSize - 1) {
+                    current_tile = board[x][i];
+                    current_schatz = scheatze[x][i];
+                    current_tile.target.z = fieldSize;
+                    if (current_schatz != 0) {
+                        current_schatz.target.z = fieldSize;
+                    }
+                } else {
+                    board[x][i + 1] = board[x][i];
+                    scheatze[x][i + 1] = scheatze[x][i];
+                }
+            }
+            board[x][0] = tile;
+            scheatze[x][0] = schatz;
+            board[x][0].target.z = 0;
+            if (scheatze[x][0] != 0) {
+                scheatze[x][0].target.z = 0;
+            }
+        } else if (z == fieldSize) {
+            for (let i = 0; i < fieldSize; i++) {
+                board[x][i].target.z--;
+                if (scheatze[x][i] != 0) {
+                    scheatze[x][i].target.z--;
+                }
+                if (i == 0) {
+                    current_tile = board[x][i];
+                    current_schatz = scheatze[x][i];
+                    current_tile.target.z = -1;
+                    if (current_schatz != 0) {
+                        current_schatz.target.z = -1;
+                    }
+                } else {
+                    board[x][i - 1] = board[x][i];
+                    scheatze[x][i - 1] = scheatze[x][i];
+                }
+            }
+            board[x][fieldSize - 1] = tile;
+            scheatze[x][fieldSize - 1] = schatz;
+            board[x][fieldSize - 1].target.z = fieldSize - 1;
+            if (scheatze[x][fieldSize - 1] != 0) {
+                scheatze[x][fieldSize - 1].target.z = fieldSize - 1;
+            }
+        }
+        // Player mitbewegen
+        for (let p = 0; p < players.length; p++) {
+            if (players[p] !== 0) {
+                players[p].moveByTile(x, z);
+            }
+        }
+    }
+
+    function updateBoard(spielsteine) {
+        if (spielsteine != [0, 0, 0, 0, 0, 0, 0]) {
+            spielsteine.forEach(updateB);
+        }
+    }
+
+    function updateB(spielstein) {
+        if (typeof spielstein.target == "undefined") {
+        } else {
+            if (spielstein.target2.x > spielstein.target.x) {
+                spielstein.position.x -= (1 + 0.05) / moving_speed * ownDeltaTime();
+                spielstein.target2.x -= 1 / moving_speed * ownDeltaTime();
+            } else if (spielstein.target2.x < spielstein.target.x) {
+                spielstein.position.x += (1 + 0.05) / moving_speed * ownDeltaTime();
+                spielstein.target2.x += 1 / moving_speed * ownDeltaTime();
+            } else {
+                if (spielstein.target2.z > spielstein.target.z) {
+                    spielstein.position.z -= (1 + 0.05) / moving_speed * ownDeltaTime();
+                    spielstein.target2.z -= 1 / moving_speed * ownDeltaTime();
+                } else if (spielstein.target2.z < spielstein.target.z) {
+                    spielstein.position.z += (1 + 0.05) / moving_speed * ownDeltaTime();
+                    spielstein.target2.z += 1 / moving_speed * ownDeltaTime();
+                }
+            }
+
+            if (Math.abs(spielstein.target2.x - spielstein.target.x) < 2 / moving_speed * ownDeltaTime()) {
+                let difference = spielstein.target.x - spielstein.target2.x;
+                spielstein.target2.x += difference;
+                spielstein.position.x += difference * 1.05;
+            }
+            if (Math.abs(spielstein.target2.z - spielstein.target.z) < 2 / moving_speed * ownDeltaTime()) {
+                let difference = spielstein.target.z - spielstein.target2.z;
+                spielstein.target2.z += difference;
+                spielstein.position.z += difference * 1.05;
+            }
+        }
+    }
+
+    // Schätze -------------------------------------------------------------------------------------------------------------
+    function createSchaetze(skull, zauberer) {
+        skull.position = new BABYLON.Vector3(100, 100, 100);
+        skull.type = "Schatz";
+
+        zauberer.position = new BABYLON.Vector3(100, 100, 100);
+        zauberer.type = "Player";
+    }
+
+    function updateSchatz() {
+        for (let i = 0; i < fieldSize; i++) {
+            for (let j = 0; j < fieldSize; j++) {
+                if (scheatze[i][j] != 0) {
+                    updateB(scheatze[i][j]);
+                }
+            }
+        }
+    }
+
+    function updateS(schatz) {
+        if (schatz != 0) {
+            updateB(schatz)
+        }
+    }
+
+    // Pfeile --------------------------------------------------------------------------------------------------------------
+    function createPfeile() {
+        for (i = -1; i < fieldSize + 1; i += (fieldSize + 1)) {
+            for (j = 1; j < fieldSize - 1; j += 2) {
+                const pfeil = BABYLON.MeshBuilder.CreateCylinder("pfeil_" + j + "." + i, {
+                    diameter: 0.7,
+                    height: 0.1,
+                    tessellation: 3
+                }, scene);
+                pfeil.scaling.x = 0.3;
+                pfeil.position = new BABYLON.Vector3(j * (1 + 0.05), 1, i * (1 + 0.05));
+                pfeil.rotation = new BABYLON.Vector3(0, (3 * Math.PI) / 2, 0);
+                const material0 = new BABYLON.StandardMaterial("material_pfeil");
+                material0.diffuseTexture = new BABYLON.Texture("/static/texturen/pfeil1.png");
+                pfeil.material = material0;
+                pfeil.type = "Pfeil";
+
+
+                const pfeil2 = BABYLON.MeshBuilder.CreateCylinder("pfeil_" + i + "." + j, {
+                    diameter: 0.7,
+                    height: 0.1,
+                    tessellation: 3
+                }, scene);
+                pfeil2.scaling.x = 0.3;
+                pfeil2.position = new BABYLON.Vector3(i * (1 + 0.05), 1, j * (1 + 0.05));
+                pfeil2.material = material0;
+                pfeil2.type = "Pfeil";
+
+                if (i == -1) {
+                    pfeil.target = new BABYLON.Vector3(j, 1, i + 1);
+                    pfeil2.target = new BABYLON.Vector3(i + 1, 1, j);
+                } else {
+                    pfeil.target = new BABYLON.Vector3(j, 1, i - 1);
+                    pfeil2.target = new BABYLON.Vector3(i - 1, 1, j);
+                    pfeil2.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+                    pfeil.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0);
+                }
+            }
+        }
+    }
+
+    // Positionsfelder -----------------------------------------------------------------------------------------------------
+    function positionsfelder() {
+        const feld1 = BABYLON.MeshBuilder.CreateCylinder("feld1", {diameter: 0.5, height: 0.05, tessellation: 0});
+        feld1.position = new BABYLON.Vector3(0, 1, 0);
+        feld1.isPickable = false;
+        const material1 = new BABYLON.StandardMaterial("material_feld1");
+        material1.diffuseTexture = new BABYLON.Texture("/static/texturen/grün.png");
+        feld1.material = material1;
+
+        const feld2 = BABYLON.MeshBuilder.CreateCylinder("feld2", {diameter: 0.5, height: 0.05, tessellation: 0});
+        feld2.position = new BABYLON.Vector3(0, 1, (fieldSize - 1) * (1 + 0.05));
+        feld2.isPickable = false;
+        const material2 = new BABYLON.StandardMaterial("material_feld2");
+        material2.diffuseTexture = new BABYLON.Texture("/static/texturen/rot.png");
+        feld2.material = material2;
+
+        const feld3 = BABYLON.MeshBuilder.CreateCylinder("feld3", {diameter: 0.5, height: 0.05, tessellation: 0});
+        feld3.position = new BABYLON.Vector3((fieldSize - 1) * (1 + 0.05), 1, 0);
+        feld3.isPickable = false;
+        const material3 = new BABYLON.StandardMaterial("material_feld3");
+        material3.diffuseTexture = new BABYLON.Texture("/static/texturen/gelb.png");
+        feld3.material = material3;
+
+        const feld4 = BABYLON.MeshBuilder.CreateCylinder("feld4", {diameter: 0.5, height: 0.05, tessellation: 0});
+        feld4.position = new BABYLON.Vector3((fieldSize - 1) * (1 + 0.05), 1, (fieldSize - 1) * (1 + 0.05));
+        feld4.isPickable = false;
+        const material4 = new BABYLON.StandardMaterial("material_feld4");
+        material4.diffuseTexture = new BABYLON.Texture("/static/texturen/blau.png");
+        feld4.material = material4;
+    }
+
+    // Mouse/Keyboard Eingaben ---------------------------------------------------------------------------------------------
+    // Pointer up (Mouse)
+    function choose(mesh) {
+        console.log("current_player " + plDran);
+        console.log("selbst: " + vars.player_self);
+        if (vars.player_self != plDran) {
+            return;
+        }
+        if (mesh.type == "Spielstein") {
+            let x = mesh.target.x;
+            let z = mesh.target.z;
+            z = fieldSize - z - 1;
+            sendMessage("move:" + z + "," + x);
+
+        } else if (mesh.type == "Pfeil") {
+            let x = mesh.target.x;
+            let z = mesh.target.z;
+            if (x < 0) {
+                x = 0;
+            } else if (x == fieldSize) {
+                x = fieldSize - 1;
+            }
+            if (z < 0) {
+                z = 0;
+            } else if (z == fieldSize) {
+                z = fieldSize - 1;
+            }
+            console.log("Pfeil: " + x + "," + z);
+            sendMessage("set_tile:" + (fieldSize - 1 - z) + "," + x);
+
+        } else if (mesh.type == "Dreh_Button") {
+            sendMessage("rotate90");
+        } else if (mesh.type == "Einsetz_Button") {
+            let x = current_tile.target.x;
+            let z = current_tile.target.z;
+            if (x < 0) {
+                x = 0;
+            } else if (x == fieldSize) {
+                x = fieldSize - 1;
+            }
+            if (z < 0) {
+                z = 0;
+            } else if (z == fieldSize) {
+                z = fieldSize - 1;
+            }
+            sendMessage("insert_tile:" + (fieldSize - 1 - z) + "," + x);
+        }
+    }
+
+    function teilHinsetzen(x, y) {
+        if (x == 0) {
+            current_tile.position.x = -1 * (1 + 0.05);
+            current_tile.position.z = y * (1 + 0.05);
+            current_tile.target = new BABYLON.Vector3(-1, 1, y);
+            current_tile.target2 = new BABYLON.Vector3(-1, 1, y);
+            if (current_schatz != 0) {
+                current_schatz.position.x = -1 * (1 + 0.05);
+                current_schatz.position.z = y * (1 + 0.05);
+                current_schatz.target = new BABYLON.Vector3(-1, 1, y);
+                current_schatz.target2 = new BABYLON.Vector3(-1, 1, y);
+            }
+        } else if (x == fieldSize - 1) {
+            current_tile.position.x = fieldSize * (1 + 0.05);
+            current_tile.position.z = y * (1 + 0.05);
+            current_tile.target = new BABYLON.Vector3(fieldSize, 1, y);
+            current_tile.target2 = new BABYLON.Vector3(fieldSize, 1, y);
+            if (current_schatz != 0) {
+                current_schatz.position.x = fieldSize * (1 + 0.05);
+                current_schatz.position.z = y * (1 + 0.05);
+                current_schatz.target = new BABYLON.Vector3(fieldSize, 1, y);
+                current_schatz.target2 = new BABYLON.Vector3(fieldSize, 1, y);
+            }
+        } else if (y == 0) {
+            current_tile.position.x = x * (1 + 0.05);
+            current_tile.position.z = -1 * (1 + 0.05);
+            current_tile.target = new BABYLON.Vector3(x, 1, -1);
+            current_tile.target2 = new BABYLON.Vector3(x, 1, -1);
+            if (current_schatz != 0) {
+                current_schatz.position.x = x * (1 + 0.05);
+                current_schatz.position.z = -1 * (1 + 0.05);
+                current_schatz.target = new BABYLON.Vector3(x, 1, -1);
+                current_schatz.target2 = new BABYLON.Vector3(x, 1, -1);
+            }
+        } else if (y == fieldSize - 1) {
+            current_tile.position.x = x * (1 + 0.05);
+            current_tile.position.z = fieldSize * (1 + 0.05);
+            current_tile.target = new BABYLON.Vector3(x, 1, fieldSize);
+            current_tile.target2 = new BABYLON.Vector3(x, 1, fieldSize);
+            if (current_schatz != 0) {
+                current_schatz.position.x = x * (1 + 0.05);
+                current_schatz.position.z = fieldSize * (1 + 0.05);
+                current_schatz.target = new BABYLON.Vector3(x, 1, fieldSize);
+                current_schatz.target2 = new BABYLON.Vector3(x, 1, fieldSize);
+            }
+        }
+    }
+
+    function rotate90() {
+        current_tile.rotation.y = current_tile.rotation.y + (Math.PI / 2);
+        if (current_tile.rotation.y == 2 * Math.PI) {
+            current_tile.rotation.y = 0;
+        }
+    }
+
+    //Mouse Eingaben
+    scene.onPointerObservable.add((pointerInfo) => {
+        switch (pointerInfo.type) {
+            case BABYLON.PointerEventTypes.POINTERDOWN:
+                // code
+                break;
+            case BABYLON.PointerEventTypes.POINTERUP:
+                if (pointerInfo.pickInfo.hit) { // Wenn Spielstein oder Pfeil angeklickt wird
+                    choose(pointerInfo.pickInfo.pickedMesh);
+                }
+                break;
+            case BABYLON.PointerEventTypes.POINTERMOVE:
+                // code
+                break;
+        }
+    });
+
+    //Keyboard Eingaben
+    /*scene.onKeyboardObservable.add((kbInfo) => {
+      switch (kbInfo.type) {
+          case BABYLON.KeyboardEventTypes.KEYDOWN:
+              switch (kbInfo.event.key) {
+                  case "d":
+                  case "D":
+                      current_tile.rotation.y = current_tile.rotation.y + (Math.PI / 2);
+                      if (current_tile.rotation.y == 2*Math.PI){
+                        current_tile.rotation.y = 0;
+                      }
+                      break;
+                  case "s":
+                  case "S":
+                      verschiebeReihe(current_tile);
+                      break;
+              }
+          break;
+      }
+    });*/
+
+    function ownDeltaTime() {
+        return Date.now() - last_frame
+    }
+
+    let last_frame = Date.now()
+
+    // Game(vars) ----------------------------------------------------------------------------------------------------------
+    function game(vars) {
+        engine.displayLoadingUI();
+
+        loadModels().then((result) => {
+            l = result[0];
+            r = result[1];
+            t = result[2];
+
+            skull = result[3];
+            zauberer_container = result[4];
+
+            createSpielsteine(result[0], result[1], result[2]);
+            createSchaetze(result[3], result[4]);
+            vars.list.players.forEach(erzeugeSpieler);
+            engine.hideLoadingUI();
+        });
+
+        createPfeile();
+
+        // Button ----------------------------------------------------------------------------------------------------------
+        const button1 = BABYLON.MeshBuilder.CreateCylinder("drehen", {diameter: 1, height: 0.05, tessellation: 0});
+        button1.position = new BABYLON.Vector3(fieldSize + 1 + 0.5, 1, 0);
+        const material1b = new BABYLON.StandardMaterial("material_drehen");
+        material1b.diffuseTexture = new BABYLON.Texture("/static/texturen/drehen.png");
+        button1.material = material1b;
+        button1.type = "Dreh_Button";
+
+        const button2 = BABYLON.MeshBuilder.CreateCylinder("einsetzen", {diameter: 1, height: 0.05, tessellation: 0});
+        button2.position = new BABYLON.Vector3(fieldSize + 1 + 0.5, 1, 1.1);
+        const material2b = new BABYLON.StandardMaterial("material_einsetzen");
+        material2b.diffuseTexture = new BABYLON.Texture("/static/texturen/einsetzen.png");
+        button2.material = material2b;
+        button2.type = "Einsetz_Button";
+
+        positionsfelder();
+
+
+        const render_function = function () {
+            players.forEach(updatePlayer);
+            board.forEach(updateBoard);
+            updateB(current_tile);
+            updateSchatz();
+            updateS(current_schatz);
+            divFps.innerHTML = engine.getFps().toFixed() + " fps";
+            last_frame = Date.now()
+            scene.render();
+        }
+
+        // Unendlich Loop --------------------------------------------------------------------------------------------------
+        engine.runRenderLoop(render_function);
+
+        setInterval(() => {
+            if (ownDeltaTime() > 20) {
+                render_function()
+                last_frame = Date.now()
+            }
+        }, 15)
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+        updateCountdown()
+        /*scene.onBeforeRenderObservable.add(() => {
+              console.log("Zielposition:", camera.target);
+        });*/
+    }
+
+    updateMarkedPlayer();
+
+
+</script>
+ 
+</body>
+</html>
